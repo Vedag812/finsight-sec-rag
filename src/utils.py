@@ -20,14 +20,18 @@ def get_secret(key: str, default: str = "") -> str:
     # 1. Try environment variable (local dev with .env)
     value = os.getenv(key)
     if value:
+        print(f"  [secret] {key} loaded from env ({value[:4]}...{value[-4:]})")
         return value
 
     # 2. Try Streamlit secrets (cloud deployment)
     try:
         import streamlit as st
-        if key in st.secrets:
-            return st.secrets[key]
-    except Exception:
-        pass
+        if hasattr(st, "secrets") and key in st.secrets:
+            value = str(st.secrets[key]).strip()
+            print(f"  [secret] {key} loaded from st.secrets ({value[:4]}...{value[-4:]})")
+            return value
+    except Exception as e:
+        print(f"  [secret] {key} st.secrets failed: {e}")
 
+    print(f"  [secret] {key} NOT FOUND anywhere!")
     return default
