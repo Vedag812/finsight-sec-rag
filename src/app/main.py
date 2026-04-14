@@ -5,14 +5,29 @@ Run: python -m streamlit run src/app/main.py
 
 import streamlit as st
 import sys
+import os
 from pathlib import Path
 
 # Fix Windows encoding - prevents charmap codec errors with Unicode
-sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass  # not needed on Linux (Streamlit Cloud)
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+# --- Inject Streamlit Cloud secrets into os.environ ---
+# This MUST happen before importing pipeline modules so that
+# os.getenv("GROQ_API_KEY") works everywhere without special helpers.
+try:
+    for key, value in st.secrets.items():
+        if isinstance(value, str) and key not in os.environ:
+            os.environ[key] = value
+except Exception:
+    pass  # no st.secrets on local dev (uses .env instead)
+
 
 from src.vectorstore.embedder import DocumentEmbedder
 from src.vectorstore.faiss_store import FAISSStore

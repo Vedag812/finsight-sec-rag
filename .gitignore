@@ -15,10 +15,8 @@ env/
 # Environment variables (never commit API keys)
 .env
 
-# Data files (too large for git)
+# Raw HTML filings (too large, re-download with ingest.py)
 data/raw/
-data/processed/
-data/indexes/
 
 # IDE
 .vscode/
@@ -35,3 +33,7 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Debug artifacts
+test_output.txt
+unicode_report.txt
