@@ -17,21 +17,15 @@ def get_secret(key: str, default: str = "") -> str:
       2. st.secrets (works on Streamlit Community Cloud)
       3. default value
     """
-    # 1. Try environment variable (local dev with .env)
     value = os.getenv(key)
     if value:
-        print(f"  [secret] {key} loaded from env ({value[:4]}...{value[-4:]})")
         return value
 
-    # 2. Try Streamlit secrets (cloud deployment)
     try:
         import streamlit as st
         if hasattr(st, "secrets") and key in st.secrets:
-            value = str(st.secrets[key]).strip()
-            print(f"  [secret] {key} loaded from st.secrets ({value[:4]}...{value[-4:]})")
-            return value
-    except Exception as e:
-        print(f"  [secret] {key} st.secrets failed: {e}")
+            return str(st.secrets[key]).strip()
+    except Exception:
+        pass
 
-    print(f"  [secret] {key} NOT FOUND anywhere!")
     return default
