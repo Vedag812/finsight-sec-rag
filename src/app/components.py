@@ -179,9 +179,6 @@ def build_filing_deep_link(ticker: str, chunk_text: str) -> str:
     base_url = get_filing_url(ticker)
     filing_text = _load_filing_text(ticker)
 
-    if not filing_text:
-        return base_url
-
     # normalise the chunk into clean sentences
     clean = _ascii_only(re.sub(r"\s+", " ", chunk_text.strip()))
     sentences = [
@@ -190,28 +187,26 @@ def build_filing_deep_link(ticker: str, chunk_text: str) -> str:
         if len(s.strip()) > 30
     ]
 
-    filing_norm = _ascii_only(re.sub(r"\s+", " ", filing_text))
+    # If we have the local filing, verify against it.
+    # If not (Streamlit Cloud), trust the chunk text directly —
+    # it was extracted from the filing, so the text will match.
+    filing_norm = _ascii_only(re.sub(r"\s+", " ", filing_text)) if filing_text else None
 
     for sent in sentences:
         sent = re.sub(r"\s+", " ", sent).strip()
 
         # try the full sentence (capped at 80 chars for a tidy URL)
-        if sent in filing_norm:
+        if filing_norm is None or sent in filing_norm:
             excerpt = sent[:80]
             cut = excerpt.rfind(" ")
             excerpt = excerpt[:cut] if cut > 30 else excerpt
             return f"{base_url}#:~:text={quote(excerpt.strip())}"
 
-        # try just the opening 50 characters
-        stub = sent[:50].strip()
-        if stub and stub in filing_norm:
-            return f"{base_url}#:~:text={quote(stub)}"
-
-    # last resort: look for any 7-word run from the chunk
+    # fallback: use a 7-word phrase from the chunk
     words = clean.split()
     for i in range(len(words) - 6):
         phrase = " ".join(words[i : i + 7])
-        if phrase in filing_norm:
+        if filing_norm is None or phrase in filing_norm:
             return f"{base_url}#:~:text={quote(phrase)}"
 
     return base_url
