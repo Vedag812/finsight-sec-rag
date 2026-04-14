@@ -49,7 +49,17 @@ def main():
     try:
         store, embedder, pipeline = load_pipeline()
     except FileNotFoundError:
-        st.error("Index not found. Run `python scripts/ingest.py` first.")
+        st.warning("FAISS Index not found in this environment. This is expected on fresh deployments because the massive embeddings database is intentionally kept off GitHub.")
+        if st.button("Initialize Pipeline & Download SEC Data", type="primary", use_container_width=True):
+            with st.spinner("Downloading 10-Ks, chunking, and building FAISS index... This takes ~45 seconds."):
+                from scripts.ingest import run_ingestion
+                import io
+                from contextlib import redirect_stdout
+                f = io.StringIO()
+                with redirect_stdout(f):
+                    run_ingestion()
+                load_pipeline.clear()
+                st.rerun()
         return
     except Exception as e:
         st.error(f"Failed to load: {e}")
