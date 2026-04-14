@@ -1,162 +1,267 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Python-Dark.svg" width="48" hspace="6">
-<img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/React-Dark.svg" width="48" hspace="6">
-<img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Docker.svg" width="48" hspace="6">
+# FinSight
 
-<br/><br/>
+**FinSight cuts 10-K research time from hours to seconds — with every answer cited back to the exact SEC filing sentence.**
 
-# FinSight 📊
+An autonomous RAG pipeline that downloads real SEC 10-K filings, indexes them with FAISS, and answers complex financial questions using LLM inference — with verifiable, deep-linked citations to SEC.gov.
 
-### *Because reading 300-page SEC filings at 2am shouldn't be a human's job.*
-
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![LangGraph](https://img.shields.io/badge/LangGraph-State%20Machine-FF6B6B?style=flat-square)](https://github.com/langchain-ai/langgraph)
-[![Groq](https://img.shields.io/badge/Groq-Ultra--Low%20Latency-F55036?style=flat-square)](https://groq.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-22C55E?style=flat-square)](LICENSE)
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://finsight-sec-rag.streamlit.app)
+![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 </div>
 
 ---
 
-## What is this?
+## 🎯 The Problem
 
-FinSight is an AI-powered financial research agent that ingests SEC 10-K annual filings and lets you interrogate them in plain English — across multiple companies, instantly, with every answer traced back to the exact sentence in the filing.
+An analyst preparing for an earnings call at 11pm needs to cross-reference risk factors across three companies' 10-K filings. That's ~600 pages of dense legal prose. Ctrl+F doesn't understand context. ChatGPT hallucinates figures. Copy-pasting into prompts loses citation trails.
 
-I built this because financial analysis tools either cost a fortune, hallucinate without citations, or take 30 seconds per query. FinSight does none of those things.
-
-Ask it *"How does Apple's R&D spend compare to Microsoft's over the last three years?"* and it'll give you a structured breakdown with clickable links that jump directly to the relevant paragraph on SEC.gov. No scrolling, no guessing, no fabrication.
+**FinSight solves this.** Ask a question in plain English, get a structured answer with every claim traced back to the exact section, page, and sentence in the original SEC filing — with a clickable link that opens the filing and auto-scrolls to the relevant passage.
 
 ---
 
-## The problem I actually solved
+## 📸 Screenshots
 
-Traditional RAG pipelines grade every retrieved chunk individually — if you pull 20 chunks, you make 20 LLM calls. At scale, that's slow, expensive, and painfully fragile.
+> **Add your own screenshots here after deployment!**
 
-FinSight collapses that to **2 API calls per query**, regardless of how many chunks are retrieved. The generation model handles its own filtering in-context. The result: sub-second responses on complex multi-company comparisons that would choke a standard pipeline.
+| Screenshot | What it shows |
+|---|---|
+| `![Dashboard](screenshots/overview.png)` | **Overview dashboard** — index stats, company coverage chart, section breakdown, pipeline diagram |
+| `![Query Result](screenshots/query_result.png)` | **Single-company query** — structured answer with citations, latency metric |
+| `![Comparison](screenshots/comparison.png)` | **Multi-company comparison** — side-by-side analysis of risk factors across companies |
+| `![Sources](screenshots/sources.png)` | **Source cards** — expandable cards with Gemini-formatted HTML or semantic highlighting |
+| `![Deep Link](screenshots/deeplink.png)` | **SEC.gov deep link** — clicking "Open in Filing" jumps to the exact passage on SEC.gov |
+
+<!-- 
+HOW TO ADD SCREENSHOTS:
+1. Create a "screenshots" folder in the repo root
+2. Take screenshots of the app running
+3. Replace the placeholder text above with actual image paths
+4. Commit and push
+-->
 
 ---
 
-## Architecture
+## ⚡ Performance — By the Numbers
 
-```mermaid
-graph TD;
-    A[User Query] --> B(LangGraph: Classify Node)
-    B -->|Detects Intent & Tickers| C(FAISS Vector Store)
-    C -->|Top-K Euclidean Distance| D{Chunks Found?}
-    
-    D -- Yes --> E(LangGraph: Generate Node)
-    D -- No --> F(Reformulate Query with Financial Lexicon)
-    F --> C
-    
-    E -->|Self-filtering Context| G((Groq: Llama-3 70B))
-    G --> H[Streamlit UI + Gemini Extracted HTML Cards]
+| Metric | Value |
+|---|---|
+| **API calls per query** | 2 (down from 7 in v1) |
+| **Filings indexed** | 8 companies, 2,450 chunks |
+| **Embedding dimensions** | 384 (MiniLM-L6-v2) |
+| **Avg response time** | ~2-4 seconds |
+| **Token footprint** | 40% smaller than v1 prompts |
+| **Model fallback depth** | 14 LLM models (Groq) + 18 extraction models (Gemini) |
+| **Companies supported** | Apple, Microsoft, Tesla, JPMorgan, Goldman Sachs, Amazon, NVIDIA, Alphabet |
+
+---
+
+## 🏗️ Architecture
+
+```
+User Query
+    │
+    ▼
+┌─────────────────────────────────────────────┐
+│  CLASSIFY  (LLM call 1)                     │
+│  Detect intent: SINGLE / COMPARISON / GENERAL│
+│  Extract company tickers from natural lang   │
+└──────────────────┬──────────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────────┐
+│  RETRIEVE  (no LLM call — pure vector math) │
+│  FAISS cosine similarity over 2,450 chunks  │
+│  Company-filtered or balanced multi-company  │
+└──────────────────┬──────────────────────────┘
+                   │
+            ┌──────┴──────┐
+            │  Empty?     │
+            ├─── No ──────┤
+            │             ▼
+            │     ┌───────────────────────────┐
+            │     │  GENERATE  (LLM call 2)   │
+            │     │  Self-filtering context    │
+            │     │  Structured markdown out   │
+            │     └───────────────────────────┘
+            │
+            └─── Yes (first time only)
+                      │
+                      ▼
+              ┌───────────────────┐
+              │  REFORMULATE      │
+              │  Rephrase in SEC  │
+              │  financial lexicon│
+              └───────┬───────────┘
+                      │
+                      └──► back to RETRIEVE
 ```
 
-The state machine flows: **Classify → Retrieve → Generate**. Each node has a single responsibility and a clear failure mode. When FAISS comes up empty, a reformulation node rewrites the query using financial lexicon before trying again — one fallback, not an infinite loop.
+### Why 2 calls instead of 7
+
+The original pipeline made **1 classify + N grade + 1 generate** API calls per query, where N = number of retrieved chunks (typically 5). Each grading call asked the LLM "is this chunk relevant?" — a binary yes/no that burned tokens and added latency.
+
+**The fix:** I folded grading into the generation prompt itself. The generate prompt now says *"Read ALL chunks below. Silently ignore any chunk that does not help answer the question."* The LLM self-filters irrelevant context as part of its normal reasoning — no extra API calls needed. This dropped the pipeline from **7 calls to 2 calls**, cutting latency by ~60%.
 
 ---
 
-## Features worth talking about
+## 🛡️ The Fallback Cascade — Engineering Under Constraints
 
-**Verifiable citations, not vibes.**
-Every data point links back to a `#:~:text=` fragment URL — a Chromium-native anchor that highlights the exact sentence in the SEC.gov archive. If the model can't cite it, it doesn't say it.
+The Groq free tier rate-limits aggressively. Rather than queuing requests or showing users a "please wait" spinner, I built a **14-model cascade** that automatically falls through to the next available model on any rate limit or permission error:
 
-**14-model text cascade + 18-model HTML extraction cascade.**
-Free-tier APIs rate-limit aggressively. Rather than crashing or queuing, FinSight waterfalls through model fallbacks automatically. You'd never notice an outage.
+```
+openai/gpt-oss-120b (best quality)
+    → llama-3.3-70b-versatile
+        → kimi-k2-instruct
+            → qwen3-32b
+                → ... 10 more models ...
+                    → llama-3.1-8b-instant (last resort, fastest)
+```
 
-**Zero runtime layout leakage.**
-Prompts are XML-delimited with late-bound string interpolation. No f-string chaos, no accidental schema bleeding between calls. Token footprint is down ~40% compared to naive prompt construction.
-
-**Multi-company comparisons out of the box.**
-The classifier extracts tickers from natural language. Ask about three companies in one sentence and all three get analysed in the same pipeline pass.
+**The user never sees a timeout.** If the 120B flagship model is rate-limited, the request silently falls to the next best model. The same approach applies to source extraction: **18 Gemini models** are chained so that the formatted source cards always render, even when individual models hit their free-tier quotas.
 
 ---
 
-## Quickstart
+## 🔗 Citation Deep Links — The Detail That Matters
 
-**1. Clone and set up your environment**
+Every source citation includes a link that opens the actual filing on SEC.gov and **auto-scrolls to the exact passage** using Chromium's `#:~:text=` fragment identifier.
+
+**How it works:**
+1. Load the filing's HTML and extract its plain text
+2. Find a sentence from the retrieved chunk that exists **verbatim** in the filing
+3. Use that text as the URL fragment — the browser highlights and scrolls to it automatically
+
+```
+https://www.sec.gov/Archives/edgar/data/886982/.../gs-20251231.htm
+    #:~:text=The%20firm%20is%20subject%20to%20credit%20risk
+```
+
+This works in Chrome, Edge, and all Chromium-based browsers. Firefox ignores the fragment gracefully (no errors, just no auto-scroll).
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.11+
+- Free API keys: [Groq](https://console.groq.com) + [Google AI Studio](https://aistudio.google.com/app/apikey)
+
+### Setup
 
 ```bash
-git clone https://github.com/Vedag812/finsight-ai.git
-cd finsight-ai
+git clone https://github.com/Vedag812/finsight-sec-rag.git
+cd finsight-sec-rag
 python -m venv venv
-source venv/Scripts/activate   # Windows
-# source venv/bin/activate     # Mac/Linux
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
 pip install -r requirements.txt
 ```
 
-**2. Add your API keys to a `.env` file**
-
-```env
-GROQ_API_KEY=your_groq_key
-GEMINI_API_KEY=your_gemini_key
-SEC_USER_NAME=Your Name
-SEC_USER_EMAIL=your.email@example.com
-```
-
-> The SEC API requires a name and email for responsible use identification. Use real values — it's a one-time header, not a subscription.
-
-**3. Ingest filings and launch**
+### Configure
 
 ```bash
-python scripts/ingest.py        # Downloads, chunks, embeds, and indexes 10-Ks into FAISS
-streamlit run src/app/main.py   # Starts the UI on localhost:8501
+cp .env.example .env
+# Edit .env with your API keys
 ```
 
-The ingest step is a one-time setup. It fetches filings from SEC EDGAR, chunks them semantically, embeds them via SentenceTransformers, and writes the FAISS index to disk. After that, queries are instant.
+### Ingest Filings
+
+```bash
+python scripts/ingest.py
+```
+
+This downloads 10-K filings from SEC EDGAR, parses them into sections, chunks the text, generates embeddings, and builds the FAISS index. Takes ~2 minutes.
+
+### Run
+
+```bash
+streamlit run src/app/main.py
+```
 
 ---
 
-## Stack
+## 🛠️ Tech Stack
 
-| Layer | Tool | Why |
+| Layer | Technology | Why |
 |---|---|---|
-| Orchestration | LangGraph | Deterministic state machine, not a prompt loop |
-| Vector Search | FAISS + SentenceTransformers | Fast Euclidean retrieval, runs locally |
-| LLM Inference | Groq (Llama 3.3 70B, GPT-OSS 120B) | Sub-100ms token generation |
-| HTML Parsing | Google Gemini | Semantic extraction from raw SEC HTML |
-| UI | Streamlit | Rapid, clean dashboard without frontend overhead |
-| Data Ingestion | sec-edgar-downloader + BeautifulSoup4 | Direct EDGAR access, structured parsing |
+| **Orchestration** | LangGraph | Deterministic state machine with conditional routing — no LangChain agent unpredictability |
+| **Vector Store** | FAISS + SentenceTransformers | Sub-millisecond similarity search over 2,450 document chunks |
+| **LLM Inference** | Groq API | 10x faster than OpenAI for the same model families — critical for interactive UX |
+| **Source Formatting** | Google Gemini | Converts raw filing text into clean, readable HTML cards |
+| **Data Ingestion** | sec-edgar-downloader + BeautifulSoup | Automated SEC EDGAR downloads with section-aware HTML parsing |
+| **Frontend** | Streamlit | Rapid prototyping with hot-reload — edit prompts and see results instantly |
+| **Deployment** | Streamlit Cloud / Docker | Zero-config cloud deploys with TOML-based secrets management |
 
 ---
 
-## What I learned building this
+## 📁 Project Structure
 
-Routing is the hardest part of any RAG system — not retrieval, not generation. Getting the classify node to correctly extract tickers, detect intent, and decide *whether* to retrieve at all (some queries don't need it) took more iteration than the rest of the pipeline combined.
-
-The self-filtering generation approach came from observing that graders add latency without adding much accuracy. If you trust the generation model enough to answer, you can trust it to ignore irrelevant context — just tell it to.
-
-The fragment URL citation system was genuinely fun to build. SEC.gov serves static HTML going back decades, and Chromium's `#:~:text=` spec works against it perfectly. It felt like finding a hidden API that was there all along.
+```
+finsight-sec-rag/
+├── src/
+│   ├── app/
+│   │   ├── main.py              # Streamlit entry point + secret injection
+│   │   └── components.py        # UI rendering, CSS, source cards, Gemini extraction
+│   ├── pipeline/
+│   │   ├── graph.py             # LangGraph state machine (Classify → Retrieve → Generate)
+│   │   ├── llm.py               # Groq client with 14-model fallback cascade
+│   │   └── prompts.py           # XML-delimited prompt templates with late binding
+│   ├── ingestion/
+│   │   ├── sec_downloader.py    # SEC EDGAR API integration
+│   │   ├── document_parser.py   # Section-aware 10-K HTML parser
+│   │   └── chunker.py           # Semantic text chunking with overlap
+│   ├── vectorstore/
+│   │   ├── embedder.py          # SentenceTransformer embedding generation
+│   │   └── faiss_store.py       # FAISS index build, save, load, search
+│   └── utils.py                 # Cross-platform secret loading
+├── scripts/
+│   ├── ingest.py                # One-command full pipeline ingestion
+│   ├── benchmark.py             # Automated latency benchmarking (10 queries)
+│   └── debug_pipeline.py        # Step-by-step pipeline debugger
+├── data/
+│   ├── indexes/                 # FAISS index + chunk metadata (committed)
+│   └── processed/               # Embeddings + chunk JSON (committed)
+├── requirements.txt
+├── Dockerfile
+└── .env.example
+```
 
 ---
 
-## Roadmap
+## ⚠️ Limitations & Known Issues
 
-- [ ] Support 10-Q quarterly filings alongside 10-Ks
-- [ ] Add portfolio-level summarisation (N companies → one exec brief)
-- [ ] Export comparison tables to PDF / CSV
-- [ ] WebSocket streaming for real-time token output in the UI
-- [ ] Docker Compose setup for one-command deployment
+**Being transparent about what this doesn't do:**
 
----
-
-## Contributing
-
-Issues and PRs are genuinely welcome. If you find a query that produces a bad citation or a hallucinated figure, open an issue with the exact input — that's the most useful bug report possible for a RAG system.
+- **Free-tier dependent** — Both Groq and Gemini APIs are on free tiers. Under heavy concurrent usage, even the 14-model cascade can exhaust. The system degrades gracefully with a clear error message, but it's not production-SLA grade.
+- **Static filings** — The system indexes a snapshot of 10-K filings. It doesn't auto-update when new filings are published. Running `ingest.py` again refreshes the index.
+- **English only** — Prompt templates, section parsing, and chunk boundaries are all optimized for English-language SEC filings.
+- **No multi-turn memory** — Each query is independent. The system doesn't remember previous questions within a session (yet).
+- **Deep links require Chromium** — The `#:~:text=` fragment identifiers work in Chrome/Edge but not Firefox or Safari.- **Streamlit UI constraints** — Dollar signs in financial data required explicit escaping to prevent Streamlit's LaTeX renderer from misinterpreting `$1.2B` as math notation.
 
 ---
 
-## License
+## 🧠 What I Learned Building This
 
-MIT. Use it, fork it, ship it.
+1. **Prompt engineering is architecture** — Moving grading from a dedicated pipeline node into the generation prompt's instructions cut API calls by 70%. The "right" prompt isn't just about wording — it's about what infrastructure you can eliminate.
+
+2. **Free-tier engineering is its own discipline** — Building reliable software on rate-limited APIs requires thinking in cascades, not retries. The 14-model fallback chain was born from hitting Groq's limits at 2am during testing.
+
+3. **Citations are a trust mechanism** — An AI that says "revenue was $383B" is useless without proof. Fragment URL deep-links that jump to the exact sentence in the filing turn an AI answer into a verifiable research tool.
+
+---
+
+## 📄 License
+
+MIT — use it, fork it, build on it.
 
 ---
 
 <div align="center">
 
-Built with stubbornness and too many API credits.
+**Built by [Vedant Agarwal](https://github.com/Vedag812)**
 
-**[⭐ Star this repo](https://github.com/Vedag812/finsight-ai)** if it's useful or if you just like the citation trick.
+*If this project helped you or sparked an idea, consider giving it a ⭐*
 
 </div>
