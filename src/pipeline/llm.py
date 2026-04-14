@@ -26,6 +26,7 @@ import os
 import time
 from dotenv import load_dotenv
 from groq import Groq
+from src.utils import get_secret
 
 load_dotenv()
 
@@ -65,7 +66,7 @@ class GeminiClient:
     """
 
     def __init__(self):
-        api_key = os.getenv("GROQ_API_KEY")
+        api_key = get_secret("GROQ_API_KEY")
         if not api_key:
             raise ValueError(
                 "GROQ_API_KEY not found. Get a free key from https://console.groq.com "

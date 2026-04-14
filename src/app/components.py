@@ -28,9 +28,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-
-load_dotenv()
+from src.utils import get_secret
 
 
 # ---------------------------------------------------------------------------
@@ -38,7 +36,7 @@ load_dotenv()
 # We try models in speed order and fall back down the list if one is
 # rate-limited or unavailable.
 # ---------------------------------------------------------------------------
-_GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+_GEMINI_KEY = get_secret("GEMINI_API_KEY")
 
 _GEMINI_MODELS = [
     "gemini-2.0-flash-lite",
